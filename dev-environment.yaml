@@ -1,0 +1,70 @@
+# ─────────────────────────────────────────────────────────────────
+# DevStagingEnvironment CR for the sample-app.
+#
+# Apply manually to test the operator without a GitHub Actions run:
+#
+#   # 1. Build and load the image into Kind
+#   docker build -t sample-app:dev examples/sample-app
+#   kind load docker-image sample-app:dev --name dev
+#
+#   # 2. Apply this manifest
+#   kubectl apply -f examples/sample-app/dev-environment.yaml
+#
+#   # 3. Wait for rollout
+#   kubectl rollout status deployment/sample-app-dev --timeout=120s
+#
+#   # 4. Hit the endpoints (via Ingress — no port-forward needed!)
+#   curl http://sample-app.localhost/healthz
+#   curl http://sample-app.localhost/status
+# ─────────────────────────────────────────────────────────────────
+apiVersion: apps.example.com/v1alpha1
+kind: DevStagingEnvironment
+metadata:
+  name: sample-app-dev
+  labels:
+    app.kubernetes.io/part-of: sample-app
+    app.kubernetes.io/managed-by: kindling
+spec:
+  # ── Application ─────────────────────────────────────────────────
+  deployment:
+    image: sample-app:dev
+    replicas: 1
+    port: 8080
+    healthCheck:
+      path: /healthz
+
+  # ── Networking ──────────────────────────────────────────────────
+  service:
+    port: 8080
+    type: ClusterIP
+
+  # ── Ingress ────────────────────────────────────────────────────
+  # Works out of the box with ingress-nginx on Kind.
+  # Access via: http://sample-app.localhost
+  ingress:
+    enabled: true
+    host: sample-app.localhost
+    ingressClassName: nginx
+
+  # ── Dependencies ────────────────────────────────────────────────
+  # The operator auto-provisions each backing service and injects
+  # connection env vars into the app container:
+  #   postgres        → DATABASE_URL
+  #   redis           → REDIS_URL
+  #   elasticsearch   → ELASTICSEARCH_URL
+  #   kafka           → KAFKA_BROKER_URL
+  #   nats            → NATS_URL
+  #   memcached       → MEMCACHED_URL
+  #   mysql           → DATABASE_URL
+  #   mongodb         → MONGO_URL
+  #   rabbitmq        → AMQP_URL
+  #   minio           → S3_ENDPOINT + S3_ACCESS_KEY + S3_SECRET_KEY
+  #   cassandra       → CASSANDRA_URL
+  #   consul          → CONSUL_HTTP_ADDR
+  #   vault           → VAULT_ADDR + VAULT_TOKEN
+  #   influxdb        → INFLUXDB_URL + INFLUXDB_ORG + INFLUXDB_BUCKET
+  #   jaeger          → JAEGER_ENDPOINT + OTEL_EXPORTER_OTLP_ENDPOINT
+  dependencies:
+    - type: postgres
+      version: "16"
+    - type: redis

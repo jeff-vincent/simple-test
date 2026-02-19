@@ -1,0 +1,70 @@
+# ─────────────────────────────────────────────────────────────────
+# dev-deploy.yml — Build and deploy sample-app to your local Kind
+# cluster via kindling.
+#
+# Uses reusable kindling actions:
+#   - kindling-build:  Kaniko image build via sidecar
+#   - kindling-deploy: DSE apply + rollout wait via sidecar
+#
+# This is the simplest possible workflow — a single service with
+# two dependencies (Postgres + Redis).
+# ─────────────────────────────────────────────────────────────────
+name: Dev Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: "registry:5000"
+  TAG: "${{ github.actor }}-${{ github.sha }}"
+
+jobs:
+  build-and-deploy:
+    runs-on: [self-hosted, "${{ github.actor }}"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Clean builds directory
+        shell: bash
+        run: |
+          rm -f /builds/*.done /builds/*.request /builds/*.processing \
+                /builds/*.apply /builds/*.apply-done /builds/*.apply-log \
+                /builds/*.apply-exitcode /builds/*.exitcode \
+                /builds/*.log /builds/*.dest /builds/*.tar.gz \
+                /builds/*.yaml /builds/*.sh
+
+      # ── Build ────────────────────────────────────────────────────
+      - name: Build image
+        uses: jeff-vincent/kindling/.github/actions/kindling-build@main
+        with:
+          name: sample-app
+          context: ${{ github.workspace }}
+          image: "${{ env.REGISTRY }}/sample-app:${{ env.TAG }}"
+
+      # ── Deploy ───────────────────────────────────────────────────
+      - name: Deploy
+        uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
+        with:
+          name: "${{ github.actor }}-sample-app"
+          image: "${{ env.REGISTRY }}/sample-app:${{ env.TAG }}"
+          port: "8080"
+          labels: |
+            app.kubernetes.io/part-of: sample-app
+            apps.example.com/github-username: ${{ github.actor }}
+          ingress-host: "${{ github.actor }}-sample-app.localhost"
+          tunnel: "true"
+          dependencies: |
+            - type: postgres
+              version: "16"
+            - type: redis
+
+      # ── Done ─────────────────────────────────────────────────────
+      - name: Summary
+        run: |
+          echo "🎉 Deploy complete!"
+          echo ""
+          echo "🌐 http://${{ github.actor }}-sample-app.localhost"
