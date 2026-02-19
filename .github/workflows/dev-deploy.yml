@@ -1,15 +1,12 @@
 # ─────────────────────────────────────────────────────────────────
-# dev-deploy.yml — Build and deploy sample-app to your local Kind
-# cluster via kindling.
+# dev-deploy.yml — Build and deploy all microservices to your local
+# Kind cluster via kindling.
 #
 # Uses reusable kindling actions:
 #   - kindling-build:  Kaniko image build via sidecar
 #   - kindling-deploy: DSE apply + rollout wait via sidecar
-#
-# This is the simplest possible workflow — a single service with
-# two dependencies (Postgres + Redis).
 # ─────────────────────────────────────────────────────────────────
-name: Dev Deploy
+name: Microservices Deploy
 
 on:
   push:
@@ -25,6 +22,7 @@ jobs:
     runs-on: [self-hosted, "${{ github.actor }}"]
 
     steps:
+      # ── 0. Checkout ──────────────────────────────────────────────
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -37,34 +35,106 @@ jobs:
                 /builds/*.log /builds/*.dest /builds/*.tar.gz \
                 /builds/*.yaml /builds/*.sh
 
-      # ── Build ────────────────────────────────────────────────────
-      - name: Build image
+      # ── 1. Build images ─────────────────────────────────────────
+
+      - name: Build orders image
         uses: jeff-vincent/kindling/.github/actions/kindling-build@main
         with:
-          name: sample-app
-          context: ${{ github.workspace }}
-          image: "${{ env.REGISTRY }}/sample-app:${{ env.TAG }}"
+          name: ms-orders
+          context: "${{ github.workspace }}/orders"
+          image: "${{ env.REGISTRY }}/ms-orders:${{ env.TAG }}"
 
-      # ── Deploy ───────────────────────────────────────────────────
-      - name: Deploy
+      - name: Build inventory image
+        uses: jeff-vincent/kindling/.github/actions/kindling-build@main
+        with:
+          name: ms-inventory
+          context: "${{ github.workspace }}/inventory"
+          image: "${{ env.REGISTRY }}/ms-inventory:${{ env.TAG }}"
+
+      - name: Build gateway image
+        uses: jeff-vincent/kindling/.github/actions/kindling-build@main
+        with:
+          name: ms-gateway
+          context: "${{ github.workspace }}/gateway"
+          image: "${{ env.REGISTRY }}/ms-gateway:${{ env.TAG }}"
+
+      - name: Build UI image
+        uses: jeff-vincent/kindling/.github/actions/kindling-build@main
+        with:
+          name: ms-ui
+          context: "${{ github.workspace }}/ui"
+          image: "${{ env.REGISTRY }}/ms-ui:${{ env.TAG }}"
+
+      # ── 2. Deploy services ──────────────────────────────────────
+
+      - name: Deploy orders
         uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
         with:
-          name: "${{ github.actor }}-sample-app"
-          image: "${{ env.REGISTRY }}/sample-app:${{ env.TAG }}"
-          port: "8080"
+          name: "${{ github.actor }}-orders"
+          image: "${{ env.REGISTRY }}/ms-orders:${{ env.TAG }}"
+          port: "8081"
           labels: |
-            app.kubernetes.io/part-of: sample-app
+            app.kubernetes.io/part-of: microservices-demo
+            app.kubernetes.io/component: orders
             apps.example.com/github-username: ${{ github.actor }}
-          ingress-host: "${{ github.actor }}-sample-app.localhost"
-          tunnel: "true"
           dependencies: |
             - type: postgres
               version: "16"
             - type: redis
 
-      # ── Done ─────────────────────────────────────────────────────
-      - name: Summary
+      - name: Deploy inventory
+        uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
+        with:
+          name: "${{ github.actor }}-inventory"
+          image: "${{ env.REGISTRY }}/ms-inventory:${{ env.TAG }}"
+          port: "8082"
+          labels: |
+            app.kubernetes.io/part-of: microservices-demo
+            app.kubernetes.io/component: inventory
+            apps.example.com/github-username: ${{ github.actor }}
+          env: |
+            - name: REDIS_URL
+              value: "redis://${{ github.actor }}-orders-redis:6379/0"
+          dependencies: |
+            - type: mongodb
+
+      - name: Deploy gateway
+        uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
+        with:
+          name: "${{ github.actor }}-gateway"
+          image: "${{ env.REGISTRY }}/ms-gateway:${{ env.TAG }}"
+          port: "8080"
+          labels: |
+            app.kubernetes.io/part-of: microservices-demo
+            app.kubernetes.io/component: gateway
+            apps.example.com/github-username: ${{ github.actor }}
+          env: |
+            - name: ORDERS_SERVICE_URL
+              value: "http://${{ github.actor }}-orders:8081"
+            - name: INVENTORY_SERVICE_URL
+              value: "http://${{ github.actor }}-inventory:8082"
+
+      - name: Deploy UI dashboard
+        uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
+        with:
+          name: "${{ github.actor }}-ui"
+          image: "${{ env.REGISTRY }}/ms-ui:${{ env.TAG }}"
+          port: "80"
+          health-check-path: "/"
+          labels: |
+            app.kubernetes.io/part-of: microservices-demo
+            app.kubernetes.io/component: ui
+            apps.example.com/github-username: ${{ github.actor }}
+          env: |
+            - name: GATEWAY_URL
+              value: "http://${{ github.actor }}-gateway:8080"
+          ingress-host: "${{ github.actor }}-ui.localhost"
+
+      # ── 3. Summary ──────────────────────────────────────────────
+      - name: Deploy summary
         run: |
+          echo ""
           echo "🎉 Deploy complete!"
           echo ""
-          echo "🌐 http://${{ github.actor }}-sample-app.localhost"
+          echo "🎨 UI dashboard: http://${{ github.actor }}-ui.localhost"
+          echo "📡 Fallback:     kubectl port-forward svc/${{ github.actor }}-gateway 8080:8080"

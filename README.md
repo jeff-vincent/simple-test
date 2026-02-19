@@ -1,37 +1,139 @@
-# sample-app
+# microservices
 
-A tiny Go web server that demonstrates the full **kindling** developer
-loop in about 100 lines of code. It connects to Postgres and Redis
-(auto-provisioned by the operator) and exposes a few HTTP endpoints.
-
-The goal is to show the shortest path from `git push` to a working app
-with real dependencies, running on your local Kind cluster.
+A multi-service demo that shows how **kindling** handles a real-ish
+microservice architecture — three backend services, a React dashboard,
+two databases, and a Redis message queue, all deployed to your local
+Kind cluster with zero manual wiring.
 
 ## Architecture
 
+```mermaid
+flowchart LR
+    user(("👩‍💻 Developer"))
+
+    subgraph cluster["⎈  Kind Cluster"]
+        ingress["🔶 Ingress\n<user>-ui.localhost"]
+        gw["🌐 Gateway\n:8080"]
+
+        subgraph orders-stack["Orders Stack"]
+            orders["📋 Orders\n:8081"]
+            pg[("🐘 Postgres")]
+            rd[("⚡ Redis\nQueue")]
+        end
+
+        subgraph inventory-stack["Inventory Stack"]
+            inv["📦 Inventory\n:8082"]
+            mongo[("🍃 MongoDB")]
+        end
+
+        ingress --> gw
+        gw -- "/orders" --> orders
+        gw -- "/inventory" --> inv
+        orders -- "reads/writes" --> pg
+        orders -- "LPUSH\norder.created" --> rd
+        rd -- "BRPOP\norder.created" --> inv
+        inv -- "reads/writes" --> mongo
+    end
+
+    user -- "http://<user>-ui.localhost" --> ingress
+
+    style cluster fill:#0f3460,stroke:#326CE5,color:#e0e0e0,stroke-width:2px
+    style orders-stack fill:#1a1a2e,stroke:#f0883e,color:#e0e0e0
+    style inventory-stack fill:#1a1a2e,stroke:#2ea043,color:#e0e0e0
+    style ingress fill:#FF6B35,stroke:#FF6B35,color:#fff
+    style gw fill:#326CE5,stroke:#326CE5,color:#fff
+    style orders fill:#f0883e,stroke:#f0883e,color:#fff
+    style inv fill:#2ea043,stroke:#2ea043,color:#fff
+    style pg fill:#336791,stroke:#336791,color:#fff
+    style rd fill:#DC382D,stroke:#DC382D,color:#fff
+    style mongo fill:#00684A,stroke:#00684A,color:#fff
+    style user fill:#6e40c9,stroke:#6e40c9,color:#fff
 ```
- ┌──────────────┐       ┌───────────────┐       ┌──────────┐
- │  sample-app  │──────▶│  PostgreSQL 16 │       │  Redis   │
- │  :8080       │──────▶│  (auto)        │       │  (auto)  │
- └──────┬───────┘       └───────────────┘       └──────────┘
-        │
-        ▼
-  GET /          → Hello message
-  GET /healthz   → Liveness probe
-  GET /status    → Postgres + Redis connectivity report
-```
+
+### Services
+
+| Service | Port | Database | Description |
+|---|---|---|---|
+| **ui** | 80 | — | React + TypeScript dashboard (Vite → nginx). Place orders, view inventory, watch activity. |
+| **gateway** | 8080 | — | Public HTTP entry point. Proxies `/orders` and `/inventory` to backend services. |
+| **orders** | 8081 | Postgres 16 | Manages orders. Publishes `order.created` events to a Redis queue. |
+| **inventory** | 8082 | MongoDB | Manages product stock. Consumes `order.created` events and decrements stock. |
+
+### Data flow
+
+1. `POST /orders` → Gateway forwards to Orders service
+2. Orders inserts a row into Postgres and `LPUSH`es an event onto the `order_events` Redis queue
+3. Inventory's background worker `BRPOP`s the event and decrements stock in MongoDB
+4. `GET /inventory` shows the updated stock levels
 
 ## Files
 
 ```
-sample-app/
+microservices/
 ├── .github/workflows/
-│   └── dev-deploy.yml       # GitHub Actions workflow (uses kindling actions)
-├── main.go                  # The app — ~100 lines of Go
-├── Dockerfile               # Two-stage build (golang:1.25 → alpine:3.19)
-├── go.mod
-├── dev-environment.yaml     # DevStagingEnvironment CR (for manual deploy)
-└── README.md                # ← you are here
+│   └── dev-deploy.yml          # GitHub Actions workflow (uses kindling actions)
+├── gateway/
+│   ├── main.go                 # Reverse-proxy HTTP server
+│   ├── Dockerfile
+│   └── go.mod
+├── orders/
+│   ├── main.go                 # Orders API + Redis queue publisher
+│   ├── Dockerfile
+│   └── go.mod
+├── inventory/
+│   ├── main.go                 # Inventory API + Redis queue consumer
+│   ├── Dockerfile
+│   └── go.mod
+├── ui/
+│   ├── src/                    # React + TypeScript dashboard
+│   ├── Dockerfile              # Vite build → nginx serve
+│   ├── nginx.conf.template
+│   └── package.json
+├── deploy/                     # DevStagingEnvironment CRs (for manual deploy)
+│   ├── orders.yaml
+│   ├── inventory.yaml
+│   ├── gateway.yaml
+│   └── ui.yaml
+└── README.md
+```
+
+## GitHub Actions Workflow
+
+The included workflow uses the **reusable kindling actions** — each
+build step is a single `uses:` call instead of 15+ lines of signal-file
+scripting:
+
+```yaml
+# Simplified — see .github/workflows/dev-deploy.yml for the full file
+steps:
+  - uses: actions/checkout@v4
+
+  - name: Clean builds directory
+    run: rm -f /builds/*
+
+  # Build all 4 images via Kaniko sidecar
+  - name: Build orders
+    uses: jeff-vincent/kindling/.github/actions/kindling-build@main
+    with:
+      name: ms-orders
+      context: "${{ github.workspace }}/orders"
+      image: "registry:5000/ms-orders:${{ env.TAG }}"
+
+  # ... inventory, gateway, ui similarly ...
+
+  # Deploy all 4 services with declarative inputs
+  - name: Deploy orders
+    uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
+    with:
+      name: "${{ github.actor }}-orders"
+      image: "registry:5000/ms-orders:${{ env.TAG }}"
+      port: "8081"
+      dependencies: |
+        - type: postgres
+          version: "16"
+        - type: redis
+
+  # ... inventory, gateway, ui similarly ...
 ```
 
 ## Quick-start
@@ -41,96 +143,66 @@ sample-app/
 - Local Kind cluster with **kindling** operator deployed ([Getting Started](../../README.md#getting-started))
 - `GithubActionRunnerPool` CR applied with your GitHub username
 
-### Option A — Push to GitHub (CI flow)
-
-Copy this example into a repo that your runner pool targets:
+### Option A — Push to GitHub (recommended)
 
 ```bash
-mkdir my-app && cd my-app && git init
-cp -r /path/to/kindling/examples/sample-app/* .
-cp -r /path/to/kindling/examples/sample-app/.github .
+mkdir my-microservices && cd my-microservices && git init
+cp -r /path/to/kindling/examples/microservices/* .
+cp -r /path/to/kindling/examples/microservices/.github .
 
-git remote add origin git@github.com:you/my-app.git
+git remote add origin git@github.com:you/my-microservices.git
 git add -A && git commit -m "initial commit" && git push -u origin main
 ```
 
-The included workflow uses the **reusable kindling actions** — no raw
-signal-file scripting:
+The runner builds all four images via Kaniko, pushes to `registry:5000`,
+and the operator provisions Postgres, MongoDB, and Redis automatically.
 
-```yaml
-# .github/workflows/dev-deploy.yml (simplified)
-steps:
-  - uses: actions/checkout@v4
-
-  - name: Clean builds directory
-    run: rm -f /builds/*
-
-  - name: Build image
-    uses: jeff-vincent/kindling/.github/actions/kindling-build@main
-    with:
-      name: sample-app
-      context: ${{ github.workspace }}
-      image: "registry:5000/sample-app:${{ env.TAG }}"
-
-  - name: Deploy
-    uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
-    with:
-      name: "${{ github.actor }}-sample-app"
-      image: "registry:5000/sample-app:${{ env.TAG }}"
-      port: "8080"
-      ingress-host: "${{ github.actor }}-sample-app.localhost"
-      dependencies: |
-        - type: postgres
-          version: "16"
-        - type: redis
-```
-
-### Option B — Deploy manually (no GitHub)
+### Option B — Deploy manually
 
 ```bash
-docker build -t sample-app:dev examples/sample-app/
-kind load docker-image sample-app:dev --name dev
-kubectl apply -f examples/sample-app/dev-environment.yaml
-kubectl rollout status deployment/sample-app-dev --timeout=120s
+for svc in gateway orders inventory ui; do
+  docker build -t registry:5000/ms-${svc}:dev examples/microservices/${svc}/
+  kind load docker-image registry:5000/ms-${svc}:dev --name dev
+done
+
+kubectl apply -f examples/microservices/deploy/
 ```
 
 ### Try it out
 
 ```bash
-curl http://<username>-sample-app.localhost/
-curl http://<username>-sample-app.localhost/healthz
-curl http://<username>-sample-app.localhost/status | jq .
+# Open the React dashboard
+open http://<your-username>-ui.localhost
+
+# Or hit the API directly
+curl http://<your-username>-gateway.localhost/status | jq .
+
+# Create an order
+curl -X POST http://<your-username>-gateway.localhost/orders \
+  -H "Content-Type: application/json" \
+  -d '{"product":"widget-a","quantity":3}' | jq .
+
+# Check inventory (stock decremented via Redis queue)
+sleep 2
+curl http://<your-username>-gateway.localhost/inventory | jq .
 ```
 
-Expected `/status` output:
+### Redis queue details
 
-```json
-{
-  "app": "sample-app",
-  "time": "2026-02-15T12:00:00Z",
-  "postgres": { "status": "connected" },
-  "redis": { "status": "connected" }
-}
+The orders and inventory services share a single Redis instance
+(provisioned by orders' `DevStagingEnvironment`). Inventory overrides
+`REDIS_URL` to point at orders' Redis:
+
+```yaml
+env:
+  - name: REDIS_URL
+    value: "redis://<username>-orders-redis:6379/0"
 ```
 
-## What the operator creates
-
-| Resource | Description |
-|---|---|
-| **Deployment** | Your app container with health checks |
-| **Service** (ClusterIP) | Internal routing |
-| **Ingress** | `<user>-sample-app.localhost` → your app |
-| **Postgres 16** | Pod + Service, `DATABASE_URL` injected |
-| **Redis** | Pod + Service, `REDIS_URL` injected |
-
-You write zero infrastructure YAML for the backing services — just
-declare `dependencies: [{type: postgres}, {type: redis}]` and the
-operator handles the rest.
+Protocol: `LPUSH order_events <json>` / `BRPOP order_events 2`
 
 ## Cleaning up
 
 ```bash
-kubectl delete devstagingenvironment sample-app-dev
+kubectl delete devstagingenvironments -l app.kubernetes.io/part-of=microservices-demo
 ```
-
-The operator garbage-collects all owned resources automatically.
