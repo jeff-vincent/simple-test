@@ -4,7 +4,7 @@
 #
 # Uses reusable kindling actions:
 #   - kindling-build:  Kaniko image build via sidecar
-#   - kindling-deploy: DSE apply + rollout wait via sidecar 
+#   - kindling-deploy: DSE apply + rollout wait via sidecar
 # ─────────────────────────────────────────────────────────────────
 name: Microservices Deploy
 
