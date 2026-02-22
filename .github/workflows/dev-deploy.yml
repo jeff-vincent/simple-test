@@ -135,4 +135,3 @@ jobs:
           echo "🌐 Gateway: http://${{ github.actor }}-gateway.localhost"
           echo "🌐 Orders: http://${{ github.actor }}-orders.localhost"
           echo "🌐 Inventory: http://${{ github.actor }}-inventory.localhost"
-
