@@ -1,12 +1,4 @@
-# ─────────────────────────────────────────────────────────────────
-# dev-deploy.yml — Build and deploy all microservices to your local
-# Kind cluster via kindling.
-#
-# Uses reusable kindling actions:
-#   - kindling-build:  Kaniko image build via sidecar
-#   - kindling-deploy: DSE apply + rollout wait via sidecar
-# ─────────────────────────────────────────────────────────────────
-name: Microservices Deploy
+name: Dev Deploy
 
 on:
   push:
@@ -22,7 +14,6 @@ jobs:
     runs-on: [self-hosted, "${{ github.actor }}"]
 
     steps:
-      # ── 0. Checkout ──────────────────────────────────────────────
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -35,132 +26,112 @@ jobs:
                 /builds/*.log /builds/*.dest /builds/*.tar.gz \
                 /builds/*.yaml /builds/*.sh
 
-      # ── 0b. Parse [kindling:svc1,svc2] tag from commit message ─
-      - name: Detect selective services
-        id: filter
+      # -- Build all images --
+
+      - name: Patch gateway Dockerfile for Kaniko
         shell: bash
         run: |
-          MSG=$(git log -1 --format=%B)
-          SVCS=$(echo "$MSG" | sed -n 's/.*\[kindling:\([a-zA-Z0-9_,.-]*\)\].*/\1/p' | head -1)
-          if [ -z "$SVCS" ]; then
-            echo "services=all" >> "$GITHUB_OUTPUT"
-            echo "📦 Full rebuild — all services"
-          else
-            echo "services=$SVCS" >> "$GITHUB_OUTPUT"
-            echo "🏷️  Selective rebuild: $SVCS"
-          fi
-
-      # ── 1. Build images ─────────────────────────────────────────
-
-      - name: Build orders image
-        if: contains(steps.filter.outputs.services, 'all') || contains(steps.filter.outputs.services, 'orders')
-        uses: jeff-vincent/kindling/.github/actions/kindling-build@main
-        with:
-          name: ms-orders
-          context: "${{ github.workspace }}/orders"
-          image: "${{ env.REGISTRY }}/ms-orders:${{ env.TAG }}"
-
-      - name: Build inventory image
-        if: contains(steps.filter.outputs.services, 'all') || contains(steps.filter.outputs.services, 'inventory')
-        uses: jeff-vincent/kindling/.github/actions/kindling-build@main
-        with:
-          name: ms-inventory
-          context: "${{ github.workspace }}/inventory"
-          image: "${{ env.REGISTRY }}/ms-inventory:${{ env.TAG }}"
+          cd ${{ github.workspace }}/gateway
+          sed -i 's/go build /go build -buildvcs=false /g' Dockerfile
 
       - name: Build gateway image
-        if: contains(steps.filter.outputs.services, 'all') || contains(steps.filter.outputs.services, 'gateway')
         uses: jeff-vincent/kindling/.github/actions/kindling-build@main
         with:
-          name: ms-gateway
-          context: "${{ github.workspace }}/gateway"
-          image: "${{ env.REGISTRY }}/ms-gateway:${{ env.TAG }}"
+          name: gateway
+          context: ${{ github.workspace }}/gateway
+          image: "${{ env.REGISTRY }}/gateway:${{ env.TAG }}"
 
-      - name: Build UI image
-        if: contains(steps.filter.outputs.services, 'all') || contains(steps.filter.outputs.services, 'ui')
+      - name: Patch inventory Dockerfile for Kaniko
+        shell: bash
+        run: |
+          cd ${{ github.workspace }}/inventory
+          sed -i '/^FROM /a ENV npm_config_cache=/tmp/.npm' Dockerfile
+
+      - name: Build inventory image
         uses: jeff-vincent/kindling/.github/actions/kindling-build@main
         with:
-          name: ms-ui
-          context: "${{ github.workspace }}/ui"
-          image: "${{ env.REGISTRY }}/ms-ui:${{ env.TAG }}"
+          name: inventory
+          context: ${{ github.workspace }}/inventory
+          image: "${{ env.REGISTRY }}/inventory:${{ env.TAG }}"
 
-      # ── 2. Deploy services ──────────────────────────────────────
+      - name: Build orders image
+        uses: jeff-vincent/kindling/.github/actions/kindling-build@main
+        with:
+          name: orders
+          context: ${{ github.workspace }}/orders
+          image: "${{ env.REGISTRY }}/orders:${{ env.TAG }}"
+
+      - name: Patch ui Dockerfile for Kaniko
+        shell: bash
+        run: |
+          cd ${{ github.workspace }}/ui
+          sed -i '/^FROM /a ENV npm_config_cache=/tmp/.npm' Dockerfile
+
+      - name: Build ui image
+        uses: jeff-vincent/kindling/.github/actions/kindling-build@main
+        with:
+          name: ui
+          context: ${{ github.workspace }}/ui
+          image: "${{ env.REGISTRY }}/ui:${{ env.TAG }}"
+
+      # -- Deploy in dependency order --
 
       - name: Deploy orders
-        if: contains(steps.filter.outputs.services, 'all') || contains(steps.filter.outputs.services, 'orders')
         uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
         with:
           name: "${{ github.actor }}-orders"
-          image: "${{ env.REGISTRY }}/ms-orders:${{ env.TAG }}"
+          image: "${{ env.REGISTRY }}/orders:${{ env.TAG }}"
           port: "5000"
+          ingress-host: "${{ github.actor }}-orders.localhost"
           health-check-path: "/api/v1/health"
-          labels: |
-            app.kubernetes.io/part-of: microservices-demo
-            app.kubernetes.io/component: orders
-            apps.example.com/github-username: ${{ github.actor }}
           dependencies: |
             - type: postgres
-              version: "16"
             - type: redis
+          env: |
+            - name: LOG_LEVEL
+              value: "debug"
 
       - name: Deploy inventory
-        if: contains(steps.filter.outputs.services, 'all') || contains(steps.filter.outputs.services, 'inventory')
         uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
         with:
           name: "${{ github.actor }}-inventory"
-          image: "${{ env.REGISTRY }}/ms-inventory:${{ env.TAG }}"
+          image: "${{ env.REGISTRY }}/inventory:${{ env.TAG }}"
           port: "3000"
+          ingress-host: "${{ github.actor }}-inventory.localhost"
           health-check-path: "/healthcheck"
-          labels: |
-            app.kubernetes.io/part-of: microservices-demo
-            app.kubernetes.io/component: inventory
-            apps.example.com/github-username: ${{ github.actor }}
-          env: |
-            - name: EVENT_STORE_URL
-              value: "redis://${{ github.actor }}-orders-redis:6379/0"
           dependencies: |
             - type: mongodb
+            - type: redis
 
       - name: Deploy gateway
-        if: contains(steps.filter.outputs.services, 'all') || contains(steps.filter.outputs.services, 'gateway')
         uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
         with:
           name: "${{ github.actor }}-gateway"
-          image: "${{ env.REGISTRY }}/ms-gateway:${{ env.TAG }}"
+          image: "${{ env.REGISTRY }}/gateway:${{ env.TAG }}"
           port: "9090"
+          ingress-host: "${{ github.actor }}-gateway.localhost"
           health-check-path: "/-/ready"
-          labels: |
-            app.kubernetes.io/part-of: microservices-demo
-            app.kubernetes.io/component: gateway
-            apps.example.com/github-username: ${{ github.actor }}
           env: |
             - name: ORDERS_URL
               value: "http://${{ github.actor }}-orders:5000"
             - name: INVENTORY_URL
               value: "http://${{ github.actor }}-inventory:3000"
 
-      - name: Deploy UI dashboard
-        if: contains(steps.filter.outputs.services, 'all') || contains(steps.filter.outputs.services, 'ui')
+      - name: Deploy ui
         uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
         with:
           name: "${{ github.actor }}-ui"
-          image: "${{ env.REGISTRY }}/ms-ui:${{ env.TAG }}"
+          image: "${{ env.REGISTRY }}/ui:${{ env.TAG }}"
           port: "80"
-          health-check-path: "/"
-          labels: |
-            app.kubernetes.io/part-of: microservices-demo
-            app.kubernetes.io/component: ui
-            apps.example.com/github-username: ${{ github.actor }}
+          ingress-host: "${{ github.actor }}-ui.localhost"
           env: |
             - name: GATEWAY_URL
               value: "http://${{ github.actor }}-gateway:9090"
-          ingress-host: "${{ github.actor }}-ui.localhost"
 
-      # ── 3. Summary ──────────────────────────────────────────────
-      - name: Deploy summary
+      - name: Summary
         run: |
-          echo ""
           echo "🎉 Deploy complete!"
-          echo ""
-          echo "🎨 UI dashboard: http://${{ github.actor }}-ui.localhost"
-          echo "📡 Fallback:     kubectl port-forward svc/${{ github.actor }}-gateway 9090:9090"
+          echo "🌐 UI:  http://${{ github.actor }}-ui.localhost"
+          echo "🌐 Gateway: http://${{ github.actor }}-gateway.localhost"
+          echo "🌐 Orders: http://${{ github.actor }}-orders.localhost"
+          echo "🌐 Inventory: http://${{ github.actor }}-inventory.localhost"
