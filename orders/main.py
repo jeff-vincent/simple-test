@@ -37,7 +37,7 @@ class OrderOut(BaseModel):
 
 @app.get("/api/v1/health")
 def health():
-    return {"up": True}
+    return {"up": True, "version": "3.0.0-hot-reload-demo", "runtime": "uvicorn", "strategy": "signal-reload"}
 
 
 @app.get("/api/v1/status")

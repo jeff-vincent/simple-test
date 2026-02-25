@@ -74,7 +74,14 @@ async function consumeLoop() {
 
 // ── Routes ───────────────────────────────────────────────────────
 
-app.get("/healthcheck", async () => ({ ok: true }));
+app.get("/healthcheck", async () => ({ ok: true, version: "3.0.0-hot-reload-demo" }));
+
+app.get("/version", async () => ({
+  service: "inventory",
+  version: "3.0.0-hot-reload-demo",
+  synced_at: new Date().toISOString(),
+  message: "🔥 Hot-synced without an image rebuild!",
+}));
 
 app.get("/inventory", async (_req, reply) => {
   if (!db) return reply.code(503).send({ error: "database offline" });

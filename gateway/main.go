@@ -25,7 +25,7 @@ func main() {
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		respond(w, 200, map[string]string{
 			"service": "gateway",
-			"version": "0.2.0",
+			"version": "3.0.0-hot-reload-demo",
 		})
 	})
 
