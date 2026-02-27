@@ -214,7 +214,6 @@ export default function App() {
           { name: 'Gateway', ok: !!status },
           { name: 'Orders', ok: isHealthy(status?.orders) },
           { name: 'Inventory', ok: isHealthy(status?.inventory) },
-          { name: 'Database', ok: isHealthy(status?.orders) && isHealthy(status?.inventory) },
         ].map((svc) => (
           <div
             key={svc.name}
