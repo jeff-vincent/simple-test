@@ -7,7 +7,7 @@ jobs:
 
   build-gateway:
     machine: true
-    resource_class: kindling/self-hosted
+    resource_class: kindling/kindling
     environment:
       REGISTRY: "registry:5000"
     steps:
@@ -50,7 +50,7 @@ jobs:
 
   build-inventory:
     machine: true
-    resource_class: kindling/self-hosted
+    resource_class: kindling/kindling
     environment:
       REGISTRY: "registry:5000"
     steps:
@@ -93,7 +93,7 @@ jobs:
 
   build-orders:
     machine: true
-    resource_class: kindling/self-hosted
+    resource_class: kindling/kindling
     environment:
       REGISTRY: "registry:5000"
     steps:
@@ -131,7 +131,7 @@ jobs:
 
   build-ui:
     machine: true
-    resource_class: kindling/self-hosted
+    resource_class: kindling/kindling
     environment:
       REGISTRY: "registry:5000"
     steps:
@@ -178,7 +178,7 @@ jobs:
 
   deploy-orders:
     machine: true
-    resource_class: kindling/self-hosted
+    resource_class: kindling/kindling
     environment:
       REGISTRY: "registry:5000"
     steps:
@@ -241,7 +241,7 @@ jobs:
 
   deploy-inventory:
     machine: true
-    resource_class: kindling/self-hosted
+    resource_class: kindling/kindling
     environment:
       REGISTRY: "registry:5000"
     steps:
@@ -301,7 +301,7 @@ jobs:
 
   deploy-gateway:
     machine: true
-    resource_class: kindling/self-hosted
+    resource_class: kindling/kindling
     environment:
       REGISTRY: "registry:5000"
     steps:
@@ -363,7 +363,7 @@ jobs:
 
   deploy-ui:
     machine: true
-    resource_class: kindling/self-hosted
+    resource_class: kindling/kindling
     environment:
       REGISTRY: "registry:5000"
     steps:
