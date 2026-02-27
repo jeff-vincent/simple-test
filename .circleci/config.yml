@@ -30,7 +30,7 @@ jobs:
       - run:
           name: Build gateway image
           command: |
-            tar -czf /builds/gateway.tar.gz -C ~/project/gateway .
+            tar -czf /builds/gateway.tar.gz -C gateway .
             echo "${REGISTRY}/gateway:${TAG}" > /builds/gateway.dest
             touch /builds/gateway.request
 
@@ -73,7 +73,7 @@ jobs:
       - run:
           name: Build inventory image
           command: |
-            tar -czf /builds/inventory.tar.gz -C ~/project/inventory .
+            tar -czf /builds/inventory.tar.gz -C inventory .
             echo "${REGISTRY}/inventory:${TAG}" > /builds/inventory.dest
             touch /builds/inventory.request
 
@@ -111,7 +111,7 @@ jobs:
       - run:
           name: Build orders image
           command: |
-            tar -czf /builds/orders.tar.gz -C ~/project/orders .
+            tar -czf /builds/orders.tar.gz -C orders .
             echo "${REGISTRY}/orders:${TAG}" > /builds/orders.dest
             touch /builds/orders.request
 
@@ -154,7 +154,7 @@ jobs:
       - run:
           name: Build ui image
           command: |
-            tar -czf /builds/ui.tar.gz -C ~/project/ui .
+            tar -czf /builds/ui.tar.gz -C ui .
             echo "${REGISTRY}/ui:${TAG}" > /builds/ui.dest
             touch /builds/ui.request
 
