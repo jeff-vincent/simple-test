@@ -190,7 +190,7 @@ jobs:
       - run:
           name: Deploy orders
           command: |
-            cat > /builds/${CIRCLE_USERNAME}-orders-dse.yaml <<EOF
+            cat > /builds/${CIRCLE_USERNAME}-orders-dse.yaml \<<EOF
             apiVersion: apps.example.com/v1alpha1
             kind: DevStagingEnvironment
             metadata:
@@ -253,7 +253,7 @@ jobs:
       - run:
           name: Deploy inventory
           command: |
-            cat > /builds/${CIRCLE_USERNAME}-inventory-dse.yaml <<EOF
+            cat > /builds/${CIRCLE_USERNAME}-inventory-dse.yaml \<<EOF
             apiVersion: apps.example.com/v1alpha1
             kind: DevStagingEnvironment
             metadata:
@@ -313,7 +313,7 @@ jobs:
       - run:
           name: Deploy gateway
           command: |
-            cat > /builds/${CIRCLE_USERNAME}-gateway-dse.yaml <<EOF
+            cat > /builds/${CIRCLE_USERNAME}-gateway-dse.yaml \<<EOF
             apiVersion: apps.example.com/v1alpha1
             kind: DevStagingEnvironment
             metadata:
@@ -375,7 +375,7 @@ jobs:
       - run:
           name: Deploy ui
           command: |
-            cat > /builds/${CIRCLE_USERNAME}-ui-dse.yaml <<EOF
+            cat > /builds/${CIRCLE_USERNAME}-ui-dse.yaml \<<EOF
             apiVersion: apps.example.com/v1alpha1
             kind: DevStagingEnvironment
             metadata:
