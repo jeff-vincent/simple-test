@@ -16,7 +16,9 @@ jobs:
       - run:
           name: Set image tag
           command: |
-            echo "export TAG=${CIRCLE_USERNAME}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
+            SAFE_USER=$(echo "$CIRCLE_USERNAME" | tr '[:upper:]' '[:lower:]' | sed 's/@/-/g; s/_/-/g' | tr -cd 'a-z0-9.-' | sed 's/--*/-/g; s/^[-.]*//; s/[-.]*$//')
+            echo "export SAFE_USER=${SAFE_USER}" >> "$BASH_ENV"
+            echo "export TAG=${SAFE_USER}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
 
       - run:
           name: Clean builds directory
@@ -59,7 +61,9 @@ jobs:
       - run:
           name: Set image tag
           command: |
-            echo "export TAG=${CIRCLE_USERNAME}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
+            SAFE_USER=$(echo "$CIRCLE_USERNAME" | tr '[:upper:]' '[:lower:]' | sed 's/@/-/g; s/_/-/g' | tr -cd 'a-z0-9.-' | sed 's/--*/-/g; s/^[-.]*//; s/[-.]*$//')
+            echo "export SAFE_USER=${SAFE_USER}" >> "$BASH_ENV"
+            echo "export TAG=${SAFE_USER}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
 
       - run:
           name: Clean builds directory
@@ -102,7 +106,9 @@ jobs:
       - run:
           name: Set image tag
           command: |
-            echo "export TAG=${CIRCLE_USERNAME}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
+            SAFE_USER=$(echo "$CIRCLE_USERNAME" | tr '[:upper:]' '[:lower:]' | sed 's/@/-/g; s/_/-/g' | tr -cd 'a-z0-9.-' | sed 's/--*/-/g; s/^[-.]*//; s/[-.]*$//')
+            echo "export SAFE_USER=${SAFE_USER}" >> "$BASH_ENV"
+            echo "export TAG=${SAFE_USER}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
 
       - run:
           name: Clean builds directory
@@ -140,7 +146,9 @@ jobs:
       - run:
           name: Set image tag
           command: |
-            echo "export TAG=${CIRCLE_USERNAME}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
+            SAFE_USER=$(echo "$CIRCLE_USERNAME" | tr '[:upper:]' '[:lower:]' | sed 's/@/-/g; s/_/-/g' | tr -cd 'a-z0-9.-' | sed 's/--*/-/g; s/^[-.]*//; s/[-.]*$//')
+            echo "export SAFE_USER=${SAFE_USER}" >> "$BASH_ENV"
+            echo "export TAG=${SAFE_USER}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
 
       - run:
           name: Clean builds directory
@@ -185,21 +193,23 @@ jobs:
       - run:
           name: Set image tag
           command: |
-            echo "export TAG=${CIRCLE_USERNAME}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
+            SAFE_USER=$(echo "$CIRCLE_USERNAME" | tr '[:upper:]' '[:lower:]' | sed 's/@/-/g; s/_/-/g' | tr -cd 'a-z0-9.-' | sed 's/--*/-/g; s/^[-.]*//; s/[-.]*$//')
+            echo "export SAFE_USER=${SAFE_USER}" >> "$BASH_ENV"
+            echo "export TAG=${SAFE_USER}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
 
       - run:
           name: Deploy orders
           command: |
-            cat > /builds/${CIRCLE_USERNAME}-orders-dse.yaml \<<EOF
+            cat > /builds/${SAFE_USER}-orders-dse.yaml \<<EOF
             apiVersion: apps.example.com/v1alpha1
             kind: DevStagingEnvironment
             metadata:
-              name: ${CIRCLE_USERNAME}-orders
+              name: ${SAFE_USER}-orders
               labels:
-                app.kubernetes.io/name: ${CIRCLE_USERNAME}-orders
+                app.kubernetes.io/name: ${SAFE_USER}-orders
                 app.kubernetes.io/managed-by: kindling
                 app.kubernetes.io/component: orders
-                apps.example.com/circleci-username: ${CIRCLE_USERNAME}
+                apps.example.com/circleci-username: ${SAFE_USER}
             spec:
               deployment:
                 image: ${REGISTRY}/orders:${TAG}
@@ -216,25 +226,25 @@ jobs:
                 type: ClusterIP
               ingress:
                 enabled: true
-                host: ${CIRCLE_USERNAME}-orders.localhost
+                host: ${SAFE_USER}-orders.localhost
                 ingressClassName: nginx
               dependencies:
                 - type: postgres
                 - type: redis
             EOF
 
-            touch /builds/${CIRCLE_USERNAME}-orders-dse.apply
+            touch /builds/${SAFE_USER}-orders-dse.apply
 
             WAITED=0
-            while [ ! -f /builds/${CIRCLE_USERNAME}-orders-dse.apply-done ]; do
+            while [ ! -f /builds/${SAFE_USER}-orders-dse.apply-done ]; do
               sleep 1; WAITED=$((WAITED+1))
               if [ ${WAITED} -ge 60 ]; then echo "Deploy timed out"; exit 1; fi
             done
 
-            EXIT_CODE=$(cat /builds/${CIRCLE_USERNAME}-orders-dse.apply-exitcode 2>/dev/null || echo "1")
+            EXIT_CODE=$(cat /builds/${SAFE_USER}-orders-dse.apply-exitcode 2>/dev/null || echo "1")
             if [ "${EXIT_CODE}" != "0" ]; then
               echo "Deploy failed"
-              cat /builds/${CIRCLE_USERNAME}-orders-dse.apply-log 2>/dev/null
+              cat /builds/${SAFE_USER}-orders-dse.apply-log 2>/dev/null
               exit 1
             fi
             echo "Deployed orders"
@@ -248,21 +258,23 @@ jobs:
       - run:
           name: Set image tag
           command: |
-            echo "export TAG=${CIRCLE_USERNAME}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
+            SAFE_USER=$(echo "$CIRCLE_USERNAME" | tr '[:upper:]' '[:lower:]' | sed 's/@/-/g; s/_/-/g' | tr -cd 'a-z0-9.-' | sed 's/--*/-/g; s/^[-.]*//; s/[-.]*$//')
+            echo "export SAFE_USER=${SAFE_USER}" >> "$BASH_ENV"
+            echo "export TAG=${SAFE_USER}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
 
       - run:
           name: Deploy inventory
           command: |
-            cat > /builds/${CIRCLE_USERNAME}-inventory-dse.yaml \<<EOF
+            cat > /builds/${SAFE_USER}-inventory-dse.yaml \<<EOF
             apiVersion: apps.example.com/v1alpha1
             kind: DevStagingEnvironment
             metadata:
-              name: ${CIRCLE_USERNAME}-inventory
+              name: ${SAFE_USER}-inventory
               labels:
-                app.kubernetes.io/name: ${CIRCLE_USERNAME}-inventory
+                app.kubernetes.io/name: ${SAFE_USER}-inventory
                 app.kubernetes.io/managed-by: kindling
                 app.kubernetes.io/component: inventory
-                apps.example.com/circleci-username: ${CIRCLE_USERNAME}
+                apps.example.com/circleci-username: ${SAFE_USER}
             spec:
               deployment:
                 image: ${REGISTRY}/inventory:${TAG}
@@ -276,25 +288,25 @@ jobs:
                 type: ClusterIP
               ingress:
                 enabled: true
-                host: ${CIRCLE_USERNAME}-inventory.localhost
+                host: ${SAFE_USER}-inventory.localhost
                 ingressClassName: nginx
               dependencies:
                 - type: mongodb
                 - type: redis
             EOF
 
-            touch /builds/${CIRCLE_USERNAME}-inventory-dse.apply
+            touch /builds/${SAFE_USER}-inventory-dse.apply
 
             WAITED=0
-            while [ ! -f /builds/${CIRCLE_USERNAME}-inventory-dse.apply-done ]; do
+            while [ ! -f /builds/${SAFE_USER}-inventory-dse.apply-done ]; do
               sleep 1; WAITED=$((WAITED+1))
               if [ ${WAITED} -ge 60 ]; then echo "Deploy timed out"; exit 1; fi
             done
 
-            EXIT_CODE=$(cat /builds/${CIRCLE_USERNAME}-inventory-dse.apply-exitcode 2>/dev/null || echo "1")
+            EXIT_CODE=$(cat /builds/${SAFE_USER}-inventory-dse.apply-exitcode 2>/dev/null || echo "1")
             if [ "${EXIT_CODE}" != "0" ]; then
               echo "Deploy failed"
-              cat /builds/${CIRCLE_USERNAME}-inventory-dse.apply-log 2>/dev/null
+              cat /builds/${SAFE_USER}-inventory-dse.apply-log 2>/dev/null
               exit 1
             fi
             echo "Deployed inventory"
@@ -308,21 +320,23 @@ jobs:
       - run:
           name: Set image tag
           command: |
-            echo "export TAG=${CIRCLE_USERNAME}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
+            SAFE_USER=$(echo "$CIRCLE_USERNAME" | tr '[:upper:]' '[:lower:]' | sed 's/@/-/g; s/_/-/g' | tr -cd 'a-z0-9.-' | sed 's/--*/-/g; s/^[-.]*//; s/[-.]*$//')
+            echo "export SAFE_USER=${SAFE_USER}" >> "$BASH_ENV"
+            echo "export TAG=${SAFE_USER}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
 
       - run:
           name: Deploy gateway
           command: |
-            cat > /builds/${CIRCLE_USERNAME}-gateway-dse.yaml \<<EOF
+            cat > /builds/${SAFE_USER}-gateway-dse.yaml \<<EOF
             apiVersion: apps.example.com/v1alpha1
             kind: DevStagingEnvironment
             metadata:
-              name: ${CIRCLE_USERNAME}-gateway
+              name: ${SAFE_USER}-gateway
               labels:
-                app.kubernetes.io/name: ${CIRCLE_USERNAME}-gateway
+                app.kubernetes.io/name: ${SAFE_USER}-gateway
                 app.kubernetes.io/managed-by: kindling
                 app.kubernetes.io/component: gateway
-                apps.example.com/circleci-username: ${CIRCLE_USERNAME}
+                apps.example.com/circleci-username: ${SAFE_USER}
             spec:
               deployment:
                 image: ${REGISTRY}/gateway:${TAG}
@@ -333,30 +347,30 @@ jobs:
                   path: /-/ready
                 env:
                   - name: ORDERS_URL
-                    value: "http://${CIRCLE_USERNAME}-orders:5000"
+                    value: "http://${SAFE_USER}-orders:5000"
                   - name: INVENTORY_URL
-                    value: "http://${CIRCLE_USERNAME}-inventory:3000"
+                    value: "http://${SAFE_USER}-inventory:3000"
               service:
                 port: 9090
                 type: ClusterIP
               ingress:
                 enabled: true
-                host: ${CIRCLE_USERNAME}-gateway.localhost
+                host: ${SAFE_USER}-gateway.localhost
                 ingressClassName: nginx
             EOF
 
-            touch /builds/${CIRCLE_USERNAME}-gateway-dse.apply
+            touch /builds/${SAFE_USER}-gateway-dse.apply
 
             WAITED=0
-            while [ ! -f /builds/${CIRCLE_USERNAME}-gateway-dse.apply-done ]; do
+            while [ ! -f /builds/${SAFE_USER}-gateway-dse.apply-done ]; do
               sleep 1; WAITED=$((WAITED+1))
               if [ ${WAITED} -ge 60 ]; then echo "Deploy timed out"; exit 1; fi
             done
 
-            EXIT_CODE=$(cat /builds/${CIRCLE_USERNAME}-gateway-dse.apply-exitcode 2>/dev/null || echo "1")
+            EXIT_CODE=$(cat /builds/${SAFE_USER}-gateway-dse.apply-exitcode 2>/dev/null || echo "1")
             if [ "${EXIT_CODE}" != "0" ]; then
               echo "Deploy failed"
-              cat /builds/${CIRCLE_USERNAME}-gateway-dse.apply-log 2>/dev/null
+              cat /builds/${SAFE_USER}-gateway-dse.apply-log 2>/dev/null
               exit 1
             fi
             echo "Deployed gateway"
@@ -370,21 +384,23 @@ jobs:
       - run:
           name: Set image tag
           command: |
-            echo "export TAG=${CIRCLE_USERNAME}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
+            SAFE_USER=$(echo "$CIRCLE_USERNAME" | tr '[:upper:]' '[:lower:]' | sed 's/@/-/g; s/_/-/g' | tr -cd 'a-z0-9.-' | sed 's/--*/-/g; s/^[-.]*//; s/[-.]*$//')
+            echo "export SAFE_USER=${SAFE_USER}" >> "$BASH_ENV"
+            echo "export TAG=${SAFE_USER}-${CIRCLE_SHA1:0:8}" >> "$BASH_ENV"
 
       - run:
           name: Deploy ui
           command: |
-            cat > /builds/${CIRCLE_USERNAME}-ui-dse.yaml \<<EOF
+            cat > /builds/${SAFE_USER}-ui-dse.yaml \<<EOF
             apiVersion: apps.example.com/v1alpha1
             kind: DevStagingEnvironment
             metadata:
-              name: ${CIRCLE_USERNAME}-ui
+              name: ${SAFE_USER}-ui
               labels:
-                app.kubernetes.io/name: ${CIRCLE_USERNAME}-ui
+                app.kubernetes.io/name: ${SAFE_USER}-ui
                 app.kubernetes.io/managed-by: kindling
                 app.kubernetes.io/component: ui
-                apps.example.com/circleci-username: ${CIRCLE_USERNAME}
+                apps.example.com/circleci-username: ${SAFE_USER}
             spec:
               deployment:
                 image: ${REGISTRY}/ui:${TAG}
@@ -395,36 +411,36 @@ jobs:
                   path: /
                 env:
                   - name: GATEWAY_URL
-                    value: "http://${CIRCLE_USERNAME}-gateway:9090"
+                    value: "http://${SAFE_USER}-gateway:9090"
               service:
                 port: 80
                 type: ClusterIP
               ingress:
                 enabled: true
-                host: ${CIRCLE_USERNAME}-ui.localhost
+                host: ${SAFE_USER}-ui.localhost
                 ingressClassName: nginx
             EOF
 
-            touch /builds/${CIRCLE_USERNAME}-ui-dse.apply
+            touch /builds/${SAFE_USER}-ui-dse.apply
 
             WAITED=0
-            while [ ! -f /builds/${CIRCLE_USERNAME}-ui-dse.apply-done ]; do
+            while [ ! -f /builds/${SAFE_USER}-ui-dse.apply-done ]; do
               sleep 1; WAITED=$((WAITED+1))
               if [ ${WAITED} -ge 60 ]; then echo "Deploy timed out"; exit 1; fi
             done
 
-            EXIT_CODE=$(cat /builds/${CIRCLE_USERNAME}-ui-dse.apply-exitcode 2>/dev/null || echo "1")
+            EXIT_CODE=$(cat /builds/${SAFE_USER}-ui-dse.apply-exitcode 2>/dev/null || echo "1")
             if [ "${EXIT_CODE}" != "0" ]; then
               echo "Deploy failed"
-              cat /builds/${CIRCLE_USERNAME}-ui-dse.apply-log 2>/dev/null
+              cat /builds/${SAFE_USER}-ui-dse.apply-log 2>/dev/null
               exit 1
             fi
 
             echo "Deployment complete!"
-            echo "UI:        http://${CIRCLE_USERNAME}-ui.localhost"
-            echo "Gateway:   http://${CIRCLE_USERNAME}-gateway.localhost"
-            echo "Orders:    http://${CIRCLE_USERNAME}-orders.localhost"
-            echo "Inventory: http://${CIRCLE_USERNAME}-inventory.localhost"
+            echo "UI:        http://${SAFE_USER}-ui.localhost"
+            echo "Gateway:   http://${SAFE_USER}-gateway.localhost"
+            echo "Orders:    http://${SAFE_USER}-orders.localhost"
+            echo "Inventory: http://${SAFE_USER}-inventory.localhost"
 
 # ────────────────────────────────────────────────────────────────────
 # WORKFLOW
