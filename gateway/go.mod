@@ -1,3 +1,3 @@
 module github.com/jeffvincent/kindling/examples/microservices/gateway
 
-go 1.25
+go 1.22
