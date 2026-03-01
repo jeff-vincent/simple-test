@@ -27,7 +27,6 @@ jobs:
                 /builds/*.yaml /builds/*.sh
 
       # -- Build all images --
-
       - name: Patch gateway Dockerfile for Kaniko
         shell: bash
         run: |
@@ -35,7 +34,7 @@ jobs:
           sed -i 's/go build /go build -buildvcs=false /g' Dockerfile
 
       - name: Build gateway image
-        uses: jeff-vincent/kindling/.github/actions/kindling-build@main
+        uses: kindling-sh/kindling/.github/actions/kindling-build@main
         with:
           name: gateway
           context: ${{ github.workspace }}/gateway
@@ -48,14 +47,14 @@ jobs:
           sed -i '/^FROM /a ENV npm_config_cache=/tmp/.npm' Dockerfile
 
       - name: Build inventory image
-        uses: jeff-vincent/kindling/.github/actions/kindling-build@main
+        uses: kindling-sh/kindling/.github/actions/kindling-build@main
         with:
           name: inventory
           context: ${{ github.workspace }}/inventory
           image: "${{ env.REGISTRY }}/inventory:${{ env.TAG }}"
 
       - name: Build orders image
-        uses: jeff-vincent/kindling/.github/actions/kindling-build@main
+        uses: kindling-sh/kindling/.github/actions/kindling-build@main
         with:
           name: orders
           context: ${{ github.workspace }}/orders
@@ -68,70 +67,97 @@ jobs:
           sed -i '/^FROM /a ENV npm_config_cache=/tmp/.npm' Dockerfile
 
       - name: Build ui image
-        uses: jeff-vincent/kindling/.github/actions/kindling-build@main
+        uses: kindling-sh/kindling/.github/actions/kindling-build@main
         with:
           name: ui
           context: ${{ github.workspace }}/ui
           image: "${{ env.REGISTRY }}/ui:${{ env.TAG }}"
 
       # -- Deploy in dependency order --
-
       - name: Deploy orders
-        uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
+        uses: kindling-sh/kindling/.github/actions/kindling-deploy@main
         with:
           name: "${{ github.actor }}-orders"
           image: "${{ env.REGISTRY }}/orders:${{ env.TAG }}"
           port: "5000"
           ingress-host: "${{ github.actor }}-orders.localhost"
           health-check-path: "/api/v1/health"
+          health-check-type: "http"
+          labels: |
+            app.kubernetes.io/part-of: simple-test
+            app.kubernetes.io/component: orders
+            apps.example.com/github-username: ${{ github.actor }}
           dependencies: |
             - type: postgres
+              version: "16"
             - type: redis
-          env: |
-            - name: LOG_LEVEL
-              value: "debug"
 
       - name: Deploy inventory
-        uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
+        uses: kindling-sh/kindling/.github/actions/kindling-deploy@main
         with:
           name: "${{ github.actor }}-inventory"
           image: "${{ env.REGISTRY }}/inventory:${{ env.TAG }}"
           port: "3000"
           ingress-host: "${{ github.actor }}-inventory.localhost"
           health-check-path: "/healthcheck"
+          health-check-type: "http"
+          labels: |
+            app.kubernetes.io/part-of: simple-test
+            app.kubernetes.io/component: inventory
+            apps.example.com/github-username: ${{ github.actor }}
+          env: |
+            - name: EVENT_STORE_URL
+              value: "$(REDIS_URL)"
           dependencies: |
             - type: mongodb
             - type: redis
 
       - name: Deploy gateway
-        uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
+        uses: kindling-sh/kindling/.github/actions/kindling-deploy@main
         with:
           name: "${{ github.actor }}-gateway"
           image: "${{ env.REGISTRY }}/gateway:${{ env.TAG }}"
           port: "9090"
           ingress-host: "${{ github.actor }}-gateway.localhost"
           health-check-path: "/-/ready"
+          health-check-type: "http"
+          labels: |
+            app.kubernetes.io/part-of: simple-test
+            app.kubernetes.io/component: gateway
+            apps.example.com/github-username: ${{ github.actor }}
           env: |
             - name: ORDERS_URL
               value: "http://${{ github.actor }}-orders:5000"
             - name: INVENTORY_URL
               value: "http://${{ github.actor }}-inventory:3000"
+          dependencies: |
+          replicas: "1"
+          service-type: "ClusterIP"
+          ingress-class: "nginx"
+          wait: "true"
 
       - name: Deploy ui
-        uses: jeff-vincent/kindling/.github/actions/kindling-deploy@main
+        uses: kindling-sh/kindling/.github/actions/kindling-deploy@main
         with:
           name: "${{ github.actor }}-ui"
           image: "${{ env.REGISTRY }}/ui:${{ env.TAG }}"
           port: "80"
           ingress-host: "${{ github.actor }}-ui.localhost"
+          health-check-path: "/"
+          health-check-type: "http"
+          labels: |
+            app.kubernetes.io/part-of: simple-test
+            app.kubernetes.io/component: ui
+            apps.example.com/github-username: ${{ github.actor }}
           env: |
             - name: GATEWAY_URL
               value: "http://${{ github.actor }}-gateway:9090"
 
       - name: Summary
+        shell: bash
         run: |
           echo "🎉 Deploy complete!"
-          echo "🌐 UI:  http://${{ github.actor }}-ui.localhost"
-          echo "🌐 Gateway: http://${{ github.actor }}-gateway.localhost"
-          echo "🌐 Orders: http://${{ github.actor }}-orders.localhost"
+          echo "🌐 UI:        http://${{ github.actor }}-ui.localhost"
+          echo "🌐 Gateway:   http://${{ github.actor }}-gateway.localhost"
+          echo "🌐 Orders:    http://${{ github.actor }}-orders.localhost"
           echo "🌐 Inventory: http://${{ github.actor }}-inventory.localhost"
