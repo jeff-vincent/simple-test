@@ -1,0 +1,29 @@
+{{- if .Values.mongodb.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-mongodb
+  labels:
+    app: mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: {{ .Values.mongodb.image }}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: {{ .Values.mongodb.port }}
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          value: {{ .Values.mongodb.env.MONGO_INITDB_ROOT_USERNAME | quote }}
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          value: {{ .Values.mongodb.env.MONGO_INITDB_ROOT_PASSWORD | quote }}
+{{- end }}

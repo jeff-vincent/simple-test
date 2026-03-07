@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-orders
+  labels:
+    app: orders
+    {{- include "kindling-snapshot.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.orders.replicas }}
+  selector:
+    matchLabels:
+      app: orders
+  template:
+    metadata:
+      labels:
+        app: orders
+    spec:
+      containers:
+      - name: orders
+        image: {{ .Values.orders.image }}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: {{ .Values.orders.port }}
+        env:
+        {{- if .Values.orders.env.DATABASE_URL }}
+        - name: DATABASE_URL
+          value: {{ .Values.orders.env.DATABASE_URL | quote }}
+        {{- end }}
+        {{- if .Values.orders.env.REDIS_URL }}
+        - name: REDIS_URL
+          value: {{ .Values.orders.env.REDIS_URL | quote }}
+        {{- end }}

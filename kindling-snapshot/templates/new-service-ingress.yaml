@@ -1,0 +1,28 @@
+{{- if .Values.new_service.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-new-service
+  labels:
+    app: new-service
+    {{- include "kindling-snapshot.labels" . | nindent 4 }}
+  {{- with .Values.new_service.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.new_service.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.new_service.ingress.ingressClassName }}
+  {{- end }}
+  rules:
+  - host: {{ .Values.new_service.ingress.host }}
+    http:
+      paths:
+      - path: {{ .Values.new_service.ingress.path }}
+        pathType: {{ .Values.new_service.ingress.pathType }}
+        backend:
+          service:
+            name: {{ .Release.Name }}-new-service
+            port:
+              number: {{ .Values.new_service.port }}
+{{- end }}

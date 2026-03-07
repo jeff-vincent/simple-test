@@ -1,0 +1,28 @@
+{{- if .Values.inventory.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-inventory
+  labels:
+    app: inventory
+    {{- include "kindling-snapshot.labels" . | nindent 4 }}
+  {{- with .Values.inventory.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.inventory.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.inventory.ingress.ingressClassName }}
+  {{- end }}
+  rules:
+  - host: {{ .Values.inventory.ingress.host }}
+    http:
+      paths:
+      - path: {{ .Values.inventory.ingress.path }}
+        pathType: {{ .Values.inventory.ingress.pathType }}
+        backend:
+          service:
+            name: {{ .Release.Name }}-inventory
+            port:
+              number: {{ .Values.inventory.port }}
+{{- end }}

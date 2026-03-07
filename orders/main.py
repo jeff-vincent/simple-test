@@ -9,12 +9,21 @@ GET  /api/v1/status   dependency connectivity
 
 import uuid
 from datetime import datetime, timezone
+import logging
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 import db
 import event_queue as q
+from config import settings
+
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S%z",
+)
+logger = logging.getLogger("orders-service")
 
 app = FastAPI(title="orders-service", docs_url=None, redoc_url=None)
 
@@ -37,6 +46,8 @@ class OrderOut(BaseModel):
 
 @app.get("/api/v1/health")
 def health():
+    
+    logger.info("checking status of dependencies")
     return {"up": True, "version": "3.0.0-hot-reload-demo", "runtime": "uvicorn", "strategy": "signal-reload"}
 
 
@@ -67,3 +78,4 @@ def create_order(body: OrderIn):
 @app.get("/orders")
 def list_orders():
     return {"orders": db.recent_orders()}
+

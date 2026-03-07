@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-inventory
+  labels:
+    app: inventory
+    {{- include "kindling-snapshot.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.inventory.replicas }}
+  selector:
+    matchLabels:
+      app: inventory
+  template:
+    metadata:
+      labels:
+        app: inventory
+    spec:
+      containers:
+      - name: inventory
+        image: {{ .Values.inventory.image }}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: {{ .Values.inventory.port }}
+        env:
+        {{- if .Values.inventory.env.REDIS_URL }}
+        - name: REDIS_URL
+          value: {{ .Values.inventory.env.REDIS_URL | quote }}
+        {{- end }}
+        {{- if .Values.inventory.env.MONGO_URL }}
+        - name: MONGO_URL
+          value: {{ .Values.inventory.env.MONGO_URL | quote }}
+        {{- end }}
+        {{- if .Values.inventory.env.EVENT_STORE_URL }}
+        - name: EVENT_STORE_URL
+          value: {{ .Values.inventory.env.EVENT_STORE_URL | quote }}
+        {{- end }}

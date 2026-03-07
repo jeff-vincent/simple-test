@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-notifications
+  labels:
+    app: notifications
+    {{- include "kindling-snapshot.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.notifications.replicas }}
+  selector:
+    matchLabels:
+      app: notifications
+  template:
+    metadata:
+      labels:
+        app: notifications
+    spec:
+      containers:
+      - name: notifications
+        image: {{ .Values.notifications.image }}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: {{ .Values.notifications.port }}

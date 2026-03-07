@@ -1,0 +1,28 @@
+{{- if .Values.notifications.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-notifications
+  labels:
+    app: notifications
+    {{- include "kindling-snapshot.labels" . | nindent 4 }}
+  {{- with .Values.notifications.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.notifications.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.notifications.ingress.ingressClassName }}
+  {{- end }}
+  rules:
+  - host: {{ .Values.notifications.ingress.host }}
+    http:
+      paths:
+      - path: {{ .Values.notifications.ingress.path }}
+        pathType: {{ .Values.notifications.ingress.pathType }}
+        backend:
+          service:
+            name: {{ .Release.Name }}-notifications
+            port:
+              number: {{ .Values.notifications.port }}
+{{- end }}

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-new-service
+  labels:
+    app: new-service
+    {{- include "kindling-snapshot.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: new-service
+  ports:
+  - port: {{ .Values.new_service.port }}
+    targetPort: {{ .Values.new_service.port }}
+    protocol: TCP
