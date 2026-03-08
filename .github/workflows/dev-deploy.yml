@@ -76,7 +76,7 @@ jobs:
 
       # -- Deploy in dependency order --
 
-      - name: Deploy orders service
+      - name: Deploy orders
         uses: kindling-sh/kindling/.github/actions/kindling-deploy@main
         with:
           name: "${{ github.actor }}-orders"
@@ -84,16 +84,12 @@ jobs:
           port: "5000"
           ingress-host: "${{ github.actor }}-orders.localhost"
           health-check-path: "/api/v1/health"
-          labels: |
-            app.kubernetes.io/part-of: simple-test
-            app.kubernetes.io/component: orders
-            apps.example.com/github-username: ${{ github.actor }}
           dependencies: |
             - type: postgres
               version: "16"
             - type: redis
 
-      - name: Deploy inventory service
+      - name: Deploy inventory
         uses: kindling-sh/kindling/.github/actions/kindling-deploy@main
         with:
           name: "${{ github.actor }}-inventory"
@@ -101,18 +97,14 @@ jobs:
           port: "3000"
           ingress-host: "${{ github.actor }}-inventory.localhost"
           health-check-path: "/healthcheck"
-          labels: |
-            app.kubernetes.io/part-of: simple-test
-            app.kubernetes.io/component: inventory
-            apps.example.com/github-username: ${{ github.actor }}
           env: |
             - name: EVENT_STORE_URL
               value: "$(REDIS_URL)"
           dependencies: |
-            - type: mongodb
             - type: redis
+            - type: mongodb
 
-      - name: Deploy gateway service
+      - name: Deploy gateway
         uses: kindling-sh/kindling/.github/actions/kindling-deploy@main
         with:
           name: "${{ github.actor }}-gateway"
@@ -120,18 +112,13 @@ jobs:
           port: "9090"
           ingress-host: "${{ github.actor }}-gateway.localhost"
           health-check-path: "/-/ready"
-          labels: |
-            app.kubernetes.io/part-of: simple-test
-            app.kubernetes.io/component: gateway
-            apps.example.com/github-username: ${{ github.actor }}
           env: |
             - name: ORDERS_URL
               value: "http://${{ github.actor }}-orders:5000"
             - name: INVENTORY_URL
               value: "http://${{ github.actor }}-inventory:3000"
-          dependencies: |
 
-      - name: Deploy ui service
+      - name: Deploy ui
         uses: kindling-sh/kindling/.github/actions/kindling-deploy@main
         with:
           name: "${{ github.actor }}-ui"
@@ -139,11 +126,14 @@ jobs:
           port: "80"
           ingress-host: "${{ github.actor }}-ui.localhost"
           health-check-path: "/"
-          labels: |
-            app.kubernetes.io/part-of: simple-test
-            app.kubernetes.io/component: ui
-            apps.example.com/github-username: ${{ github.actor }}
           env: |
             - name: GATEWAY_URL
               value: "http://${{ github.actor }}-gateway:9090"
-          dependencies: |
+
+      - name: Summary
+        run: |
+          echo "🎉 Deploy complete!"
+          echo "🌐 Gateway:   http://${{ github.actor }}-gateway.localhost"
+          echo "🌐 Inventory: http://${{ github.actor }}-inventory.localhost"
+          echo "🌐 Orders:    http://${{ github.actor }}-orders.localhost"
+          echo "🌐 UI:        http://${{ github.actor }}-ui.localhost"
