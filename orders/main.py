@@ -78,4 +78,3 @@ def create_order(body: OrderIn):
 @app.get("/orders")
 def list_orders():
     return {"orders": db.recent_orders()}
-
