@@ -1,6 +1,7 @@
 {
   "version": "0.2.0",
   "configurations": [
+    
     {
       "connect": {
         "host": "localhost",
@@ -10,7 +11,7 @@
       "name": "kindling: debug jeff-vincent-orders",
       "pathMappings": [
         {
-          "localRoot": "${workspaceFolder}",
+          "localRoot": "${workspaceFolder}/orders",
           "remoteRoot": "/app"
         }
       ],
@@ -27,7 +28,7 @@
       "name": "kindling: attach jeff-vincent-orders",
       "pathMappings": [
         {
-          "localRoot": "${workspaceFolder}",
+          "localRoot": "${workspaceFolder}/orders",
           "remoteRoot": "/app"
         }
       ],
